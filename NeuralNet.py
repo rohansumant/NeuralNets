@@ -1,7 +1,8 @@
 '''
 Trying to build a neural net that learns the addition operation.
 
-The input vector will be [1..n] and output vector should be [3..(2*n-1)]
+The input vector will be [1..n] and output vector should be [3..(2*n-1)].
+For simplicity, output vector size is maintained to be [1..2*n].
 '''
 
 import numpy as np
@@ -128,20 +129,38 @@ def backpropagate(net, activations, delta):
     return updated_wts
 
 
-def main():
-    net = create_neural_net(3)
+def gen_io_vectors(inp_size, op_size):
+    input_vector = np.zeros((1,inp_size), float)
+    a = np.random.randint(0,inp_size)
+    b = np.random.randint(0,inp_size)
+    while b == a:
+        b = np.random.randint(0,inp_size)
+    c = a+b
+    assert(c < op_size)
+    input_vector[0][a] = 1.0
+    input_vector[0][b] = 1.0
+
+    output_vector = np.zeros((1,op_size), float)
+    output_vector[0][c] = 1.0
+
+    return input_vector, output_vector
+
+
+def training_instance(net, input_vector, expected_op):
     biases = net[1]
 
-    input_vector = np.array([[0,1,1]], float)
-    expected_op = np.zeros((1,6))
-    expected_op[0][3] = 1.0
+    #input_vector = np.array([[0,1,1]], float)
+    #expected_op = np.zeros((1,6))
+    #expected_op[0][3] = 1.0
 
-    err_accum = []
+    #input_vector, expected_op = gen_io_vectors(3,6)
+    #print(input_vector, expected_op)
+
 
     activations = apply_input(net, input_vector)
     curr_err = np.sum(error(activations[-1], expected_op))
 
-    iteration_cnt = 100
+    iteration_cnt = 10
     while iteration_cnt > 0 and curr_err > 0.01:
         #activations = apply_input(net, input_vector)
         #curr_err = np.sum(error(activations[-1], expected_op))
@@ -154,24 +173,37 @@ def main():
         error_after_backprop = np.sum(error(activations_after_backprop[-1],
             expected_op))
 
-        if error_after_backprop > curr_err:
+        if error_after_backprop >= curr_err:
             # learning rate is too high
-            print('Error increasing after backprop. Skipping net update and \
-                    reducing learning rate')
+            print('Error increasing after backprop. Skipping net update and reducing learning rate')
             global learning_rate
-            learning_rate *= 0.1
-            if learning_rate < 1e-6:
+            learning_rate *= 0.25
+            if learning_rate < 1e-8:
                 break
             iteration_cnt -= 1
             continue
 
         print(f'Error: {error_after_backprop} {curr_err}')
         curr_err = error_after_backprop
+        #if(curr_err == 0.5 and np.sum(activations[-1]) == 0):
+            #print(activations, updated_wts)
+            #break
         activations = activations_after_backprop
         net = (updated_wts, biases)
         iteration_cnt -= 1
 
-    print(f'Error {curr_err} {activations[-1]}')
+    print(f'Finished training instance: Error {curr_err} {activations[-1]}')
+    return net
+
+def main():
+
+    net = create_neural_net(3)
+
+    for sample in range(100):
+        input_vector, expected_op = gen_io_vectors(3,6)
+        net = training_instance(net, input_vector, expected_op)
+
+    print(f'Final wts: {net[0]}')
 
 
 main()
