@@ -11,7 +11,7 @@ import numpy as np
 Creating a feed forward neural net with default 1 hidden layer.
 '''
 
-learning_rate = 0.05
+learning_rate = 1e-2
 
 def apply_fn(np_array, fn):
     return np.vectorize(fn)(np_array)
@@ -56,20 +56,17 @@ def apply_input(net, input_vector: np.ndarray):
     layer_count = len(weights) # not including the input layer here
     assert(layer_count == len(biases))
 
-    curr_inp = np.copy(input_vector)
     accum = [np.copy(input_vector)]
     for i in range(layer_count):
+        curr_inp = accum[-1]
         wt_matrix = weights[i]
         bias = biases[i]
-
         mm_result = np.matmul(curr_inp, wt_matrix)
         assert(mm_result.shape == bias.shape)
         assert(mm_result.shape[0] == 1)
-        net = mm_result + bias
-        activated_op = np.vectorize(activation_fn)(net)
+        activated_op = apply_fn(mm_result + bias, activation_fn)
         #accum.append((net, activated_op))
         accum.append(activated_op)
-        curr_inp = np.copy(activated_op)
 
     return accum
 
@@ -79,38 +76,6 @@ def error(v1, v2):
     result = np.vectorize(lambda x:x**2)(v1-v2)
     result /= 2.0
     return result
-
-'''
-
-def update_weights_before_output(wts, ip, wt_delta):
-    (rows, cols) = wts.shape
-    result = np.copy(wts)
-    for r in range(rows):
-        for c in range(cols):
-            curr_delta = wt_delta[0][c]*activation_fn_diff(op[0][c])*ip[0][r]
-            result[r][c] -= learning_rate*curr_delta
-
-    #print('op layer wt change')
-    #print(wts, result)
-    return result
-
-def update_weights(wts, wts_ahead, updated_wts_ahead,
-        op, ip):
-    (rows, cols) = wts.shape
-    result = np.copy(wts)
-
-    for r in range(rows):
-        for c in range(cols):
-            base = (ip[0][r]*activation_fn_diff(op[0][c]))/op[0][c]
-            sigma = np.sum(wts_ahead[c].dot(updated_wts_ahead[c]))
-            wt_delta = base*sigma
-            result[r][c] -= learning_rate*wt_delta
-
-    #print('hidden layer wt change')
-    #print(wts, result)
-    return result
-
-'''
 
 
 def backpropagate(net, activations, op_delta):
@@ -142,9 +107,10 @@ def backpropagate(net, activations, op_delta):
 
 
     assert(type(wt_deltas[0]) != type(None))
+    print(f'wt_deltas: {wt_deltas}')
 
-    updated_wts = [None]*wts_len
-    for i in range(wts_len-1,-1,-1):
+    updated_wts = []
+    for i in range(wts_len):
         updated_wt_mat = np.copy(wts[i])
         rows, cols = wts[i].shape
         input_activations = activations[i]
@@ -153,7 +119,7 @@ def backpropagate(net, activations, op_delta):
             for c in range(cols):
                 curr_delta = input_activations[0][r]*delta_from_layers_ahead[0][c]
                 updated_wt_mat[r][c] -= learning_rate*curr_delta
-        updated_wts[i] = updated_wt_mat
+        updated_wts.append(updated_wt_mat)
 
     return updated_wts
 
@@ -179,7 +145,7 @@ def training_instance(net, input_vector, expected_op):
     biases = net[1]
 
     #input_vector = np.array([[0,1,1]], float)
-    #expected_op = np.zeros((1,6))
+    #expected_op = np.zeros((2,6))
     #expected_op[0][3] = 1.0
 
     #input_vector, expected_op = gen_io_vectors(3,6)
@@ -189,8 +155,8 @@ def training_instance(net, input_vector, expected_op):
     activations = apply_input(net, input_vector)
     curr_err = np.sum(error(activations[-1], expected_op))
 
-    iteration_cnt = 10
-    while iteration_cnt > 0 and curr_err > 0.01:
+    iteration_cnt = 1000
+    while iteration_cnt > 0 and curr_err > 0.001:
         #activations = apply_input(net, input_vector)
         #curr_err = np.sum(error(activations[-1], expected_op))
 
@@ -204,7 +170,9 @@ def training_instance(net, input_vector, expected_op):
 
         if error_after_backprop >= curr_err:
             # learning rate is too high
-            #print('Error increasing after backprop. Skipping net update and reducing learning rate')
+            print(f'Error increasing after backprop {error_after_backprop}')
+            print(f'debug1: {activations[-1]} {delta}')
+
             #global learning_rate
             #learning_rate *= 0.25
             #if learning_rate < 1e-8:
@@ -225,11 +193,14 @@ def training_instance(net, input_vector, expected_op):
     print(f'Finished training instance: Error {curr_err} {activations[-1]}')
     return net
 
+
+
+
 def main():
 
     net = create_neural_net(3)
 
-    for sample in range(100):
+    for sample in range(1):
         input_vector, expected_op = gen_io_vectors(3,6)
         net = training_instance(net, input_vector, expected_op)
 
