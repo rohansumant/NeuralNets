@@ -17,24 +17,25 @@ class NeuralNet:
         self.weights = []
         self.biases = []
         self.learningRate = 0.1
-        self.relu = np.vectorize(lambda x: 1.0/(1+np.exp(-x)))
-        self.reluDerivative = np.vectorize(lambda fx: fx*(1-fx))
+        #sigmoid activation fn
+        self.activationFn = np.vectorize(lambda x: 1.0/(1+np.exp(-x)))
+        self.activationFnDerivative = np.vectorize(lambda fx: fx*(1-fx))
         for i in range(self.hiddenLayers + 1):
             if i == 0:
                 self.weights.append(np.random.random((inputSize, outputSize)))
             else:
                 self.weights.append(np.random.random((outputSize, outputSize)))
-            self.biases.append(np.zeros((outputSize, 1)))
+            self.biases.append(np.random.random((outputSize, 1)))
 
     def forwardProp(self, inp):
         activations = [inp]
         for i in range(self.hiddenLayers + 1):
             currInp = activations[-1]
             currOp = (currInp.T.dot(self.weights[i])).T
-            currActivation = self.relu(currOp + self.biases[i])
+            currActivation = self.activationFn(currOp + self.biases[i])
             activations.append(currActivation)
         self.activations = activations
-        print(f'activations: {self.activations}\n')
+        #print(f'activations: {self.activations}\n')
 
     def backProp(self, actualOp, targetOp):
         delta = actualOp - targetOp
@@ -46,21 +47,23 @@ class NeuralNet:
         D = []
         for i in range(self.hiddenLayers + 1, 0, -1):
             if len(D) == 0:
-                D.append(delta * self.reluDerivative(activations[aPtr]))
+                D.append(delta * self.activationFnDerivative(activations[aPtr]))
             else:
                 prevDelta = D[-1]
                 currDelta = (self.weights[wPtr].dot(prevDelta)
-                        * self.reluDerivative(activations[aPtr]))
+                        * self.activationFnDerivative(activations[aPtr]))
                 D.append(currDelta)
                 wPtr -= 1
             aPtr -= 1
 
         D = D[::-1]
 
-        print(f'Delta {D}\n')
+        #print(f'Delta {D}\n')
         for i in range(self.hiddenLayers + 1):
-            update = self.learningRate * (activations[i].dot(D[i].T))
-            self.weights[i] -= update
+            wtUpdate = self.learningRate * (activations[i].dot(D[i].T))
+            biasUpdate = self.learningRate * (D[i])
+            self.weights[i] -= wtUpdate
+            self.biases[i] -= biasUpdate
 
 
     def iterate(self, inp, targetOp):
