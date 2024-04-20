@@ -13,7 +13,6 @@ class NeuralNet:
         self.inputSize = inputSize
         self.outputSize = outputSize
         self.hiddenLayers = hiddenLayers
-        np.random.seed(1)
         self.weights = []
         self.biases = []
         self.learningRate = 0.1
@@ -70,20 +69,54 @@ class NeuralNet:
         self.forwardProp(inp)
         actualOp = self.activations[-1]
         err = error(actualOp, targetOp)
-        print(f'Error: {err}')
+        #print(f'Error: {err}')
         self.backProp(actualOp, targetOp)
 
 
+    def test(self, inp):
+        self.forwardProp(inp)
+        return np.argmax(self.activations[-1])
+
+
+def genIO(inputBound, outputBound):
+    a = np.random.randint(0, inputBound)
+    b = np.random.randint(0, inputBound)
+    while b == a:
+        b = np.random.randint(0, inputBound)
+    inp = np.zeros((1, inputBound))
+    inp[0][a] = 1.0
+    inp[0][b] = 1.0
+
+    op = np.zeros((1, outputBound))
+    op[0][a+b] = 1.0
+    return inp.T, op.T, a, b
+
 
 if __name__ == '__main__':
-    nn = NeuralNet(2,2,1)
-    print('Initial wts and biases')
-    print(nn.weights, nn.biases)
-    print('\n')
-    inp = np.array([0,1]).reshape(2,1)
-    op = np.array([1,0]).reshape(2,1)
+    np.random.seed(2)
+    inputBound = 5
+    outputBound = 2*inputBound
+    nn = NeuralNet(inputBound,outputBound,1)
+    #print('Initial wts and biases')
+    #print(nn.weights, nn.biases)
+    #print('\n')
 
-    for _ in range(1000):
+    seenInput = set()
+    for _ in range(10000):
+        inp, op, a, b = genIO(inputBound, outputBound)
+        seenInput.add((a,b))
         nn.iterate(inp, op)
 
-    print(nn.activations)
+
+    print(len(seenInput))
+    mismatches = 0
+    for _ in range(1000):
+        inp, _, a, b = genIO(inputBound, outputBound)
+        result = nn.test(inp)
+        if a+b != result:
+            print(a, b, result)
+            mismatches += 1
+
+        #print(nn.activations[-1])
+    print(f'Total addition mismatches = {mismatches}') 
+
