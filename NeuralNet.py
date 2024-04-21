@@ -4,6 +4,12 @@ def error(actualOp, targetOp):
     delta = actualOp - targetOp
     return (sum([x**2 for x in delta])/2.0).sum()
 
+def relu(x):
+    return max(x,0)
+
+def reluDiff(fx):
+    return 1 if fx > 0 else 0
+
 import numpy as np
 class NeuralNet:
     def __init__(self,
@@ -19,6 +25,11 @@ class NeuralNet:
         #sigmoid activation fn
         self.activationFn = np.vectorize(lambda x: 1.0/(1+np.exp(-x)))
         self.activationFnDerivative = np.vectorize(lambda fx: fx*(1-fx))
+
+
+        #ReLU activation fn
+        #self.activationFn = np.vectorize(relu)
+        #self.activationFnDerivative = np.vectorize(reluDiff)
         for i in range(self.hiddenLayers + 1):
             if i == 0:
                 self.weights.append(np.random.random((inputSize, outputSize)))
@@ -69,7 +80,7 @@ class NeuralNet:
         self.forwardProp(inp)
         actualOp = self.activations[-1]
         err = error(actualOp, targetOp)
-        #print(f'Error: {err}')
+        print(f'Error: {err}')
         self.backProp(actualOp, targetOp)
 
 
@@ -78,7 +89,7 @@ class NeuralNet:
         return np.argmax(self.activations[-1])
 
 
-def genIO(inputBound, outputBound):
+def genIOWithBounds(inputBound, outputBound):
     a = np.random.randint(0, inputBound)
     b = np.random.randint(0, inputBound)
     while b == a:
@@ -92,31 +103,50 @@ def genIO(inputBound, outputBound):
     return inp.T, op.T, a, b
 
 
+def genIO(a, b):
+    inp = np.zeros((1, inputBound))
+    inp[0][a] = 1.0
+    inp[0][b] = 1.0
+
+    op = np.zeros((1, outputBound))
+    op[0][a+b] = 1.0
+    return inp.T, op.T
+
+
 if __name__ == '__main__':
-    np.random.seed(2)
-    inputBound = 5
+    np.random.seed(1)
+    inputBound = 7
     outputBound = 2*inputBound
-    nn = NeuralNet(inputBound,outputBound,1)
+    nn = NeuralNet(inputBound,outputBound,0)
     #print('Initial wts and biases')
     #print(nn.weights, nn.biases)
     #print('\n')
 
-    seenInput = set()
-    for _ in range(10000):
-        inp, op, a, b = genIO(inputBound, outputBound)
-        seenInput.add((a,b))
+    allInput = [(a,b) for a in range(inputBound) for b in range(a+1,
+        inputBound)]
+    np.random.shuffle(allInput)
+    trainingSize = len(allInput)*7//10
+    trainingInput = allInput[:trainingSize]
+    testInput = allInput[trainingSize:]
+
+
+    ix = 0
+    for _ in range(42000):
+        a, b = trainingInput[ix]
+        inp, op = genIO(a, b)
         nn.iterate(inp, op)
+        ix = (ix + 1) % len(trainingInput)
 
-
-    print(len(seenInput))
     mismatches = 0
-    for _ in range(1000):
-        inp, _, a, b = genIO(inputBound, outputBound)
+
+    for (a,b) in testInput:
+        inp, op = genIO(a, b)
         result = nn.test(inp)
         if a+b != result:
             print(a, b, result)
+            print(nn.activations[-1])
             mismatches += 1
 
-        #print(nn.activations[-1])
+    print(f'Test input size = {len(testInput)}')
     print(f'Total addition mismatches = {mismatches}') 
 
